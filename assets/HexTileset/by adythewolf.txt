@@ -1,0 +1,37 @@
+You can find me at 
+adythewolf@gmail.com
+ or on the blog at 
+http://adythewolf-play.blogspot.ro/
+
+http://opengameart.org/content/hex-tileset-pack
+
+
+The Map
+http://localhost:1337/map/update/1?name=FirstGo&tmxFile=FirstGo.tmx&turnProcessing=false
+
+Teams
+http://localhost:1337/team/create?name=red&colour=CC0000
+http://localhost:1337/team/create?name=blue&colour=0000CC
+
+Units
+http://localhost:1337/unit/create?name=RedInfantry&attackRange=2&attack=1&strength=10&attackSteps=1&moveSteps=3&roadSteps=3&hillSteps=2&waterSteps=0&icon=Infantry.png&team=1
+http://localhost:1337/unit/create?name=BlueInfantry&attackRange=2&attack=1&strength=10&attackSteps=1&moveSteps=3&roadSteps=3&hillSteps=2&waterSteps=0&icon=Infantry.png&team=2
+http://localhost:1337/unit/create?name=RedATInfantry&attackRange=3&attack=3&strength=5&attackSteps=1&moveSteps=3&roadSteps=3&hillSteps=2&waterSteps=0&icon=ATInfantry.png&team=1
+http://localhost:1337/unit/create?name=BlueATInfantry&attackRange=3&attack=3&strength=5&attackSteps=1&moveSteps=3&roadSteps=3&hillSteps=2&waterSteps=0&icon=ATInfantry.png&team=2
+http://localhost:1337/unit/create?name=RedTank&attackRange=3&attack=2&strength=15&attackSteps=2&moveSteps=1&roadSteps=5&hillSteps=0&waterSteps=0&icon=Tank.png&team=1
+http://localhost:1337/unit/create?name=BlueTank&attackRange=3&attack=2&strength=15&attackSteps=2&moveSteps=1&roadSteps=5&hillSteps=0&waterSteps=0&icon=Tank.png&team=2
+
+Player
+http://localhost:1337/player/create?name=Player1&team=1
+http://localhost:1337/player/create?name=Player2&team=2
+http://localhost:1337/player/create?name=Player3&team=2
+http://localhost:1337/player/create?name=Player4&team=1
+
+playerUnits
+2,3
+http://localhost:1337/PlayerUnit/create?unit=1&player=1&posCubeX=2&posCubeY=2&posCubeZ=-4&health=10
+http://localhost:1337/PlayerUnit/create?unit=3&player=4&posCubeX=5&posCubeY=1&posCubeZ=-6&health=5
+http://localhost:1337/PlayerUnit/create?unit=2&player=2&posCubeX=1&posCubeY=8&posCubeZ=-9&health=10
+http://localhost:1337/PlayerUnit/create?unit=1&player=1&posCubeX=14&posCubeY=0&posCubeZ=-14&health=10
+http://localhost:1337/PlayerUnit/create?unit=6&player=3&posCubeX=7&posCubeY=5&posCubeZ=-12&health=15
+

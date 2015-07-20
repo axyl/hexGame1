@@ -1,0 +1,16 @@
+curl http://localhost:1337/map/runTurn
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep
+timeout 2
+curl http://localhost:1337/map/runStep

@@ -1,0 +1,3 @@
+Removed the config/routes.js module.export.routes...
+
+So EJS doesn't run..

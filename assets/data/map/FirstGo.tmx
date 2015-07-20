@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="hexagonal" renderorder="right-down" width="25" height="25" tilewidth="32" tileheight="32" hexsidelength="16" staggeraxis="x" staggerindex="odd" nextobjectid="1">
+ <tileset firstgid="1" name="HexTileset" tilewidth="32" tileheight="32">
+  <tile id="0">
+   <image width="32" height="32" source="../HexTileset/Terrain/Dirt.png"/>
+  </tile>
+  <tile id="1">
+   <image width="32" height="32" source="../HexTileset/Terrain/Grass.png"/>
+  </tile>
+  <tile id="2">
+   <image width="32" height="32" source="../HexTileset/Terrain/Snow.png"/>
+  </tile>
+  <tile id="3">
+   <properties>
+    <property name="water" value="true"/>
+   </properties>
+   <image width="32" height="32" source="../HexTileset/Terrain/Water.png"/>
+  </tile>
+ </tileset>
+ <layer name="Terrain" width="25" height="25">
+  <data encoding="base64" compression="zlib">
+   eJytVEEKwDAIq6X/f/MuG4jMGmMOUgqS2CTW1lrmagvqvPXd1fjb4Vs41fOr547zq2fPOKpiPWI5OjwIR8RWc0RMBDv2dLRitcw44k5OfKpwEK7KI2RWlqOjRdZ307/r81+/Cht99xT7htfFZv4gJt9K/ZDcKTg6/9ttt6b7WfWgHJNMqDM78XySMWY/fD0xFAT/
+  </data>
+ </layer>
+ </map>
