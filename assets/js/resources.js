@@ -6,6 +6,8 @@ game.resources = [
      */
     {name: "hexmini",  type:"image", src: "data/img/hexmini.png"},
 	{name: "result", type:"image", src: "data/HexTileset/result.png"},
+    {name: "MartyTiles", type:"image", src: "data/HexTileset/MartyTiles.png"},
+
 
     /* Player Units.
     */
@@ -24,6 +26,7 @@ game.resources = [
      * {name: "example01", type: "tmx", src: "data/map/example01.json"},
       */
     {name: "hexagonal-mini", type: "tmx", src: "data/map/SecondGo.tmx"},
+    // {name: "hexagonal-mini", type: "tmx", src: "data/map/MartyMap.tmx"},
 
     /* Background music.
      * @example

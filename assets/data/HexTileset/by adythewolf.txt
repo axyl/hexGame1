@@ -7,4 +7,4 @@ http://opengameart.org/content/hex-tileset-pack
 
 Imagemagic creation...
 
-e:\source\hexgames\imagemagick\montage -mode concatenate -tile 5x *.png tiles.png
+e:\source\hexgames\imagemagick\montage -mode concatenate -tile 5x -background none *.png tiles.png

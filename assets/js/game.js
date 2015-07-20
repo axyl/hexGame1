@@ -12,7 +12,7 @@ var game = {
         me.sys.pauseOnBlur= false;
         me.sys.stopOnBlur= false;
         // init the video
-        if (!me.video.init(window.innerWidth/ 2, window.innerHeight/ 2, {wrapper : "screen", scale : '2.0', scaleMethod: 'stretch'})) {
+        if (!me.video.init(window.innerWidth, window.innerHeight, {wrapper : "screen", scale : 'auto', scaleMethod: 'stretch'})) {
             alert("Your browser does not support HTML5 canvas.");
             return;
         }

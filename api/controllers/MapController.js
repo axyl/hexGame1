@@ -55,7 +55,6 @@ function getNeededSteps(offsetPos, unit, loadedMap) {
 };
 
 
-
 function stepPlayerUnit(unit, loadedMap) {
  	if (unit.order.movePath.length< 1) {
  		unit.moveStepsLeft= 0;
@@ -74,9 +73,10 @@ function stepPlayerUnit(unit, loadedMap) {
 
  	// only move if the tile we're moving to is empty.
  	// TODO - PROBLEM this code runs after the steps left bit, because of the async.
- 	PlayerUnit.findOne({posCubeX:unit.order.movePath[0].x,posCubeY:unit.order.movePath[0].y,posCubeZ:unit.order.movePath[0].z}).exec(function (err, found) {
+ 	PlayerUnit.findOne({posCubeX:unit.order.movePath[0].x,posCubeY:unit.order.movePath[0].y,posCubeZ:unit.order.movePath[0].z}).then(function (found) {
+ 		sails.log("findOne..");
  		if (found=== undefined) {
-		 	sails.log('Moving Unit.', unit.id);
+		 	sails.log('Moving Unit.', unit.id, neededSteps);
 	 		unit.moveStepsLeft= unit.moveStepsLeft- neededSteps;
 	 		unit.posCubeX= unit.order.movePath[0].x;
 	 		unit.posCubeY= unit.order.movePath[0].y;
@@ -95,9 +95,13 @@ function stepPlayerUnit(unit, loadedMap) {
  		} else {
  			sails.log('Destination Tile occupied. Halting this step.');	
  		}
- 	});
-
- 	return true;
+	}).catch( function (error) {
+		sails.log("Error");
+	}).done (function () {
+	 	sails.log('Finished step PlayerUnit for unit', unit.id);
+	 	return true;
+	});
+	sails.log("End stepPlayerUnit for", unit.id);
  };
 
 module.exports = {
@@ -146,25 +150,22 @@ module.exports = {
 			// Load up the map for terrain checks.
 			// TODO - should request the data from the map model...!!!!! OAHMAIGAWD.
 			tmx.parseFile("./assets/data/map/SecondGo.tmx", function (error, loadedMap) {
-				sails.log('Loaded map', loadedMap.layers[0].tileAt(13,4).properties);
+				sails.log('Loaded map');
 
 				for (var loopUnits= 0; loopUnits< foundUnits.length; loopUnits++)
 				{
-					sails.log('steps left before step is ', foundUnits[loopUnits].moveStepsLeft);
 					stepPlayerUnit(foundUnits[loopUnits], loadedMap);
-					sails.log('Steps remaining ', foundUnits[loopUnits].moveStepsLeft);
-
 				}
 			});
 
 		});
+			// Broadcast that we're starting a step.
+			//sails.sockets.blast('GameMessages', {msg: 'Finished Action Step.'});
+			//sails.log('Step done.');
+//			return true;
 
-		// Broadcast that we're starting a step.
-		sails.sockets.blast('GameMessages', {msg: 'Finished Action Step.'});
 
-		return res.send('complete');
-
-
+		return res.send('running');
 
 	}
 
