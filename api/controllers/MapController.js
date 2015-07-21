@@ -5,6 +5,7 @@
  * @help        :: See http://sailsjs.org/#!/documentation/concepts/Controllers
  */
 var tmx= require('tmx-parser');	// The TMX Map Parser
+var Promise = require('bluebird');
 
 function offsetCoord(col,row) {
 	return {col:col, row:row};
@@ -104,6 +105,29 @@ function stepPlayerUnit(unit, loadedMap) {
 	sails.log("End stepPlayerUnit for", unit.id);
  };
 
+ testPlayer= function(entry) {
+ 	sails.log('testPlayer', entry.id);
+ 	if (entry.order.movePath== 0) {
+ 		sails.log('No movement...');
+ 		return entry;
+ 	} else {
+
+	 	return PlayerUnit.findOne({posCubeX:entry.order.movePath[0].x,posCubeY:entry.order.movePath[0].y,posCubeZ:entry.order.movePath[0].z})
+	 	.then(function (found) {
+	 		sails.log('findOne!', found);
+	 		if (found=== undefined) {
+	 			sails.log('Tile is free');
+	 		}
+	 		return entry;
+	 	})
+	 	.catch(function (error) {
+	 		sails.log('Exception',error);
+	 		throw error;
+ 		});
+ 	}
+
+ };
+
 module.exports = {
 
 	runTurn: function (req, res) {
@@ -124,6 +148,46 @@ module.exports = {
 		sails.sockets.blast('GameMessages', {msg: 'Starting Action Sequence.'});
 
 		return res.send('Done');
+	},
+
+	runTest: function (req, res) {
+		// Just an example of doing the promises based requests for dealing with each unit.
+		// var Promises=  require('bluebird');  .....
+		var params= req.allParams();
+
+		sails.log('start');
+		// Get a list of units..
+		PlayerUnit.find({moveStepsLeft:{'>':0},health:{'>':0}}).populate('order').populate('unit')
+		.then(function (foundUnits) {
+			sails.log('data', foundUnits.length);
+			// Cycle through each unit and do something with it.
+			var m= Promise.map(foundUnits, function(foundUnit) {
+				sails.log('SingleUnit', foundUnit.id);
+
+				return testPlayer(foundUnit);
+			}).then(function(result) {
+				// Deal with the result of having cycle'd through them all.  
+				// If we returned result, then it would be an array of what the map returned above.
+				sails.log('Map Result is', result.length);
+				return foundUnits;
+			});
+			// This returns the promise to the outside...
+			return Promise.all(m).catch(function(error){throw error;})
+		})
+		.then(function (test) {
+			// Now everything is done...test will be the foundUnits...
+			sails.log('test', test.length);
+			return res.send(test);
+		})
+		.catch(function (error){
+			sails.log('Error', error);
+			return res.error(error);
+		});
+		// This will run before all the async requests above.
+		sails.log('end');
+		// Web request will be left hanging...as no response.
+
+
 	},
 
 	runStep: function (req, res) {
