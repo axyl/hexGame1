@@ -4,8 +4,8 @@
  * @description :: Server-side logic for managing maps
  * @help        :: See http://sailsjs.org/#!/documentation/concepts/Controllers
  */
-var tmx= require('tmx-parser');	// The TMX Map Parser
 var Promise = require('bluebird');
+var tmx= Promise.promisifyAll(require('tmx-parser'));	// The TMX Map Parser, Promisified...
 
 function offsetCoord(col,row) {
 	return {col:col, row:row};
@@ -21,6 +21,8 @@ function cubetoOffset(cube) {
 function getNeededSteps(offsetPos, unit, loadedMap) {
 	var steps= 0;
 	sails.log('Unit is at position', offsetPos);
+
+	// TODO : find the smallest step only???
 
 	// What types of terrain types do we have?
 	for (var loopTiles= 0; loopTiles< loadedMap.layers.length; loopTiles++)	{
@@ -56,28 +58,32 @@ function getNeededSteps(offsetPos, unit, loadedMap) {
 };
 
 
-function stepPlayerUnit(unit, loadedMap) {
+// Move a unit it's step...
+stepPlayerUnit= function (unit, loadedMap) {
  	if (unit.order.movePath.length< 1) {
  		unit.moveStepsLeft= 0;
- 		return false;
+ 		unit.save();
+ 		return unit;
  	}
  	sails.log('Stepping unit', unit.id);
  	// Check the hexTile it wants to move to, what's it's step?  Let's just guess 2...
- 	neededSteps= getNeededSteps(cubetoOffset({x:unit.order.movePath[0].x, y:unit.order.movePath[0].y, z:unit.order.movePath[0].z}), unit, loadedMap);
+ 	var neededSteps= getNeededSteps(cubetoOffset({x:unit.order.movePath[0].x, y:unit.order.movePath[0].y, z:unit.order.movePath[0].z}), unit, loadedMap);
 
  	if (unit.moveStepsLeft< neededSteps||neededSteps=== 0) {
+ 		sails.log("Unit doesn't have enough steps left.");
  		unit.moveStepsLeft= 0;
- 		return false;
+ 		unit.save();
+ 		return unit;
  	}
 
  	// TODO: Is that next move path nextdoor?
 
- 	// only move if the tile we're moving to is empty.
- 	// TODO - PROBLEM this code runs after the steps left bit, because of the async.
- 	PlayerUnit.findOne({posCubeX:unit.order.movePath[0].x,posCubeY:unit.order.movePath[0].y,posCubeZ:unit.order.movePath[0].z}).then(function (found) {
+ 	// is there a unit in the way?
+ 	return PlayerUnit.findOne({posCubeX:unit.order.movePath[0].x,posCubeY:unit.order.movePath[0].y,posCubeZ:unit.order.movePath[0].z})
+ 	.then(function (found) {
  		sails.log("findOne..");
  		if (found=== undefined) {
-		 	sails.log('Moving Unit.', unit.id, neededSteps);
+		 	sails.log('Moving Unit needing steps', unit.id, neededSteps);
 	 		unit.moveStepsLeft= unit.moveStepsLeft- neededSteps;
 	 		unit.posCubeX= unit.order.movePath[0].x;
 	 		unit.posCubeY= unit.order.movePath[0].y;
@@ -92,17 +98,15 @@ function stepPlayerUnit(unit, loadedMap) {
 			sails.sockets.blast('PlayerUnit', {playerUnit: unit.id, movePath: unit.order.movePath, 
 				posCubeX: unit.posCubeX, posCubeY: unit.posCubeY, posCubeZ: unit.posCubeZ});
 
-
  		} else {
  			sails.log('Destination Tile occupied. Halting this step.');	
  		}
-	}).catch( function (error) {
-		sails.log("Error");
-	}).done (function () {
-	 	sails.log('Finished step PlayerUnit for unit', unit.id);
-	 	return true;
+	})
+	.catch( function (error) {
+		sails.log("Error stepping unit", error);
+		throw error;
 	});
-	sails.log("End stepPlayerUnit for", unit.id);
+
  };
 
  testPlayer= function(entry) {
@@ -197,6 +201,41 @@ module.exports = {
 		// Broadcast that we're starting a step.
 		sails.sockets.blast('GameMessages', {msg: 'Starting Action Step.'});
 
+		// Load up the map.  TODO read the map from the DB rather than hardcoded.
+		// Using promisfied version of the TMX thing.
+		tmx.parseFileAsync("./assets/data/map/SecondGo.tmx")
+		.then(function (loadedMap) { 
+			sails.log('Map Loaded with dims',loadedMap.width,loadedMap.height);
+			return loadedMap;
+		})
+		.then(function (loadedMap) {
+			// Get a list of units that have steps left and are not dead...
+			return PlayerUnit.find({moveStepsLeft:{'>':0},health:{'>':0}}).populate('order').populate('unit')
+			.then(function (foundUnits) {
+				// Async cycle through each unit and move them
+				sails.log('Checking for units that can move');
+				var move= Promise.map(foundUnits, function(foundUnit) {
+					sails.log('Checking Move for unit', foundUnit.id);
+					return stepPlayerUnit(foundUnit, loadedMap);
+				});
+				return Promise.all(move).catch(function(error){throw error;})
+			})
+			.catch (function (error){throw error;});
+		})
+		.then(function (blah) {
+			sails.log("And we're done.  Should see this last.");
+			sails.sockets.blast('GameMessages', {msg: 'Finished Action Step.'});
+			//sails.log('Step done.');
+//			return true;
+			return res.send('stepDone');
+		})
+		.catch (function (error){
+			sails.log('Error Loading Map',error);
+			return res.error(error);
+		});
+
+		/*
+
 		// find each playable Unit that has steps remaining...
 		PlayerUnit.find({moveStepsLeft:{'>':0},health:{'>':0}}).populate('order').populate('unit').exec(function (err, foundUnits) {
 
@@ -222,14 +261,14 @@ module.exports = {
 				}
 			});
 
-		});
+		}); */
 			// Broadcast that we're starting a step.
 			//sails.sockets.blast('GameMessages', {msg: 'Finished Action Step.'});
 			//sails.log('Step done.');
 //			return true;
 
 
-		return res.send('running');
+		// return res.send('running');
 
 	}
 

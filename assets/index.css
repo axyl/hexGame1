@@ -36,3 +36,9 @@ div #HUD {
 	background-color: #393838;
 	opacity: 1;
 }
+
+#HUD li {
+	display: inline;
+	list-style-type: none;
+	padding-right: 20px;
+}

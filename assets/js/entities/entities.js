@@ -23,6 +23,8 @@ game.TextEntity = me.Renderable.extend({
                 if(tile){
                     self.text = tile.col + "," + tile.row;
                 }
+
+                // Show unit stats?
             }
         });
     },
@@ -59,10 +61,17 @@ game.ATInfantryEntity= me.DraggableEntity.extend({
     },
 
     dragStart: function (e) {
+        // Are we going to allow this?  Are you on the right player?
+        // TODO : Fix this shit - Unit selection boxes - what side and if player unit...
+        var currentPlayer= $("#currentPlayer").val();
+
+        if (this.player.id != currentPlayer) return false; 
+
+
         // call the super function
         this._super(me.DraggableEntity, 'dragStart', [e]);
         // Save the start of the drag to draw a line...
-                    // We want to snap to the hex positions...
+        // We want to snap to the hex positions...
         var layer = me.game.currentLevel.getLayers()[0];
         var tile = layer.getTile(e.gameX, e.gameY);
         var pixelPos= me.game.tmxRenderer.tileToPixelCoords(tile.col, tile.row);
@@ -125,8 +134,9 @@ game.ATInfantryEntity= me.DraggableEntity.extend({
         var layer = me.game.currentLevel.getLayers()[0];
 
         // TODO : Fix this shit - Unit selection boxes - what side and if player unit...
+        var currentPlayer= $("#currentPlayer").val();
 
-        if (this.player.id==1) renderer.setColor('yellow'); else if (this.player.team==1) renderer.setColor('blue'); else renderer.setColor('red');
+        if (this.player.id==currentPlayer) renderer.setColor('yellow'); else if (this.player.team==1) renderer.setColor('red'); else renderer.setColor('blue');
         
         renderer.setGlobalAlpha(0.4);
 
@@ -166,7 +176,16 @@ game.ATInfantryEntity= me.DraggableEntity.extend({
 
     drawMovePath: function(renderer) {
         // Shows the current movement path orders, if the unit has one.  Called as part of the draw routine.
-        if (this.movePath.length> 0) {
+        // First check if we should show this, depending on what team you're on.
+
+        var currentPlayer= $("#currentPlayer").val();
+
+        var team= 1;
+        // TODO : OH MY GAWD I'M GETTING LAZY>>> FIX FHITSSSSSDFDSFSDFSDFDS
+        if (currentPlayer== 2||currentPlayer== 3) team= 2;
+
+
+        if (this.movePath.length> 0 && this.player.team=== team) {
             // get the current pos for the first from line...
             var layer = me.game.currentLevel.getLayers()[0];
             var fromX= this.pos.x+ layer.tilewidth/ 2;

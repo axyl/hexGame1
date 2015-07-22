@@ -10,7 +10,16 @@
     <body>
         <!-- Canvas placeholder -->
 		<div id="screen">
-			<div id="HUD"><p id="lastGameMessage"></p></div>
+			<div id="HUD">
+				<ul id="HUDList">
+					<li><select id="currentPlayer"></select>
+					<li><input type="button" id="newInfantry" class="spawnUnit" value="New Infantry" /></li>
+					<li><input type="button" id="newATInfantry" class="spawnUnit" value="New AT Infantry" /></li>
+					<li><input type="button" id="newAPC" class="spawnUnit" value="New APC" /></li>
+					<li><input type="button" id="newTank" class="spawnUnit" value="New Tank" /></li>
+					<li id="lastGameMessage"></li>
+				</ul>
+			</div>
 		</div>
 
 		<!-- zepto library (ala jquery) -->
@@ -38,7 +47,35 @@
 
 		<!-- Bootstrap & Mobile optimization tricks -->
 		<script type="text/javascript">
+
+			// TODO : move this, set it up right.
+			function currentPlayer() {
+				return $("#currentPlayer").val();
+			}
+
+			// TODO : move this, set it up right.
+			function currentTeam() {
+				if (currentPlayer()==1||currentPlayer()==4) {
+					return 2;
+				} else {
+					return 1;
+				}
+				
+			}
+
 			window.onReady(function onReady() {
+				// Load up the team selector.
+				io.socket.get('/player', function (data, jwres) {
+
+					$.each(data, function (index, value) {
+						$('#currentPlayer').append($('<option/>', {
+							value: value.id,
+							text: value.name+ ' - Team: '+ value.team.name
+						}));
+					});
+				});
+				
+   				// Load zee game.
 				game.onload();
 				// Mobile browser hacks
 				if (me.device.isMobile && !navigator.isCocoonJS) {

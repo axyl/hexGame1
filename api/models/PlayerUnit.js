@@ -13,10 +13,12 @@ module.exports = {
   		autoIncrement: true
   	}, 
   	unit: {
-  		model: 'unit'
+  		model: 'unit',
+      required: true
   	},
   	player: {
-  		model:'player'
+  		model:'player',
+      required: true
   	},
   	order: {
   		model: 'order',
@@ -29,8 +31,16 @@ module.exports = {
   	//TODO : On create, health should be set to whatever the unit has defined.
   	moveStepsLeft: 'integer',	// While a turn is being executed, this shows how many steps we have left available to move.
   	attackStepsLeft: 'integer'	// While a turn is being executed, how many attacks left do we have?
+  },
 
-
+  afterCreate: function (newlyInsertedRecord, cb) {
+    sails.log('Player Unit ID is', newlyInsertedRecord.id);
+    PlayerUnit.findOne({id:newlyInsertedRecord.id}).populate('unit').exec(function (err, updated){
+      sails.log('Updating new record with health');
+      updated.health= updated.unit.strength;
+      updated.save();
+      cb();
+    });
   }
 };
 
