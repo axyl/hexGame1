@@ -109,6 +109,63 @@ stepPlayerUnit= function (unit, loadedMap) {
 
  };
 
+ // See if an unit can attack another unit.
+ attackCheckForUnit= function(unit, loadedMap) {
+ 	// Look for the best candidate to attack and attack it...
+ 	// TODO : How do we select a unit to attack?
+ 	sails.log('Doing an attack check for', unit.id);
+ 	
+ 	// Currently we're checking for the first unit that comes back that's within attack range.
+ 	return PlayerUnit.findOne({
+ 		health:{'>':0},
+ 		// TODO : Need to only select units on other teams!
+ 		// player.team:{'!':unit.player.team},
+ 		posCubeX:{'>=':unit.posCubeX- unit.unit.attackRange},
+ 		posCubeX:{'<=':unit.posCubeX+ unit.unit.attackRange},
+ 		posCubeY:{'>=':unit.posCubeY- unit.unit.attackRange},
+ 		posCubeY:{'<=':unit.posCubeY+ unit.unit.attackRange},
+ 		posCubeZ:{'>=':unit.posCubeZ- unit.unit.attackRange},
+ 		posCubeZ:{'<=':unit.posCubeZ+ unit.unit.attackRange}})
+ 	.then( function(foundTarget) {
+ 		if (foundTarget!= undefined) {
+ 			unit.attackStepsLeft= unit.attackStepsLeft- 1;	// TODO : Should we have different attacks use up more than just one step?
+ 			unit.save();
+ 			foundTarget.healthLeft= foundTarget.healthLeft- unit.attack;
+ 			foundTarget.save();
+ 			sails.log('Unit attacked with healthLeft as', unit.id, foundTarget.id, foundTarget.healthLeft);
+ 		} else {
+ 			sails.log('No units nearby for', unit.id);
+ 		}
+ 	})
+ 	.catch( function(error){
+ 		sails.log('Error doing attack check for unit.', error);
+ 		throw error;
+ 	});
+
+ };
+
+ resetHealthLeft= function() {
+ 	sails.log('resetHealthLeft');
+ 	// get All alive units and reset their healthLeft to health...
+ 	return PlayerUnit.find({health:{'>':0}})
+ 	.then (function(aliveUnits) {
+
+		var m= Promise.map(aliveUnits, function(aliveUnit) {
+			sails.log('Resetting health for unit', aliveUnit.id);
+
+			aliveUnit.healthLeft= aliveUnit.health;
+			return aliveUnit.save();
+		});
+		// This returns the promise to the outside...
+		return Promise.all(m).catch(function(error){throw error;})
+
+ 	})
+	.catch (function (error) {
+		sails.log("Error finding playerUnits with health> 0", error);
+		throw error;
+	});
+ };
+
  testPlayer= function(entry) {
  	sails.log('testPlayer', entry.id);
  	if (entry.order.movePath== 0) {
@@ -143,7 +200,8 @@ module.exports = {
 			for (var loopUnits= 0; loopUnits< foundUnits.length; loopUnits++)
 			{
 
-				foundUnits[loopUnits].moveStepsLeft= 10; // foundUnits[loopUnits].unit.moveSteps;
+				foundUnits[loopUnits].moveStepsLeft= foundUnits[loopUnits].unit.moveSteps;
+				foundUnits[loopUnits].attackStepsLeft= foundUnits[loopUnits].unit.attackSteps;
 				foundUnits[loopUnits].save();
 			}
 		});
@@ -160,7 +218,7 @@ module.exports = {
 		var params= req.allParams();
 
 		sails.log('start');
-		// Get a list of units..
+		// Get a list of units that can move.
 		PlayerUnit.find({moveStepsLeft:{'>':0},health:{'>':0}}).populate('order').populate('unit')
 		.then(function (foundUnits) {
 			sails.log('data', foundUnits.length);
@@ -199,10 +257,11 @@ module.exports = {
 		sails.log('Running Step');
 
 		// Broadcast that we're starting a step.
-		sails.sockets.blast('GameMessages', {msg: 'Starting Action Step.'});
+		sails.sockets.blast('GameMessages', {msg: 'Starting Movement Step.'});
 
 		// Load up the map.  TODO read the map from the DB rather than hardcoded.
 		// Using promisfied version of the TMX thing.
+		// TODO: Might have to change that, as we need the map for a bunch of stuff here.
 		tmx.parseFileAsync("./assets/data/map/SecondGo.tmx")
 		.then(function (loadedMap) { 
 			sails.log('Map Loaded with dims',loadedMap.width,loadedMap.height);
@@ -220,15 +279,43 @@ module.exports = {
 				});
 				return Promise.all(move).catch(function(error){throw error;})
 			})
+			// Now combat
+			.then(function (ignore) {
+				// Now the Combat step - reset all unit PlayerUnit healthLeft to the value of their health.
+				// We want to do this so all alive units get a chance to attack, before they kick the bucket...
+				// Might change this mechanic over time.
+				sails.log("Combat Step Begin - resetting health");
+				return resetHealthLeft();
+			})
+			.then(function (ignore) {
+				// get a list of all units that are healthy and have actionPoints left.
+				return PlayerUnit.find({attackStepsLeft:{'>':0},health:{'>':0}}).populate('unit').populate('player')
+				.then( function (possibleAttackingUnits) {
+					sails.log('Atacking units checking for found nme.');
+					var attackingUnits= Promise.map(possibleAttackingUnits, function(unitAttackingCheck) {
+						return attackCheckForUnit(unitAttackingCheck, loadedMap);
+					});
+					return Promise.all(attackingUnits).catch(function(error){throw error;})
+				})
+				.catch (function (error){throw error;});
+			})  // TODO Save the damage.
 			.catch (function (error){throw error;});
 		})
 		.then(function (blah) {
-			sails.log("And we're done.  Should see this last.");
-			sails.sockets.blast('GameMessages', {msg: 'Finished Action Step.'});
-			//sails.log('Step done.');
-//			return true;
-			return res.send('stepDone');
+			sails.log("Movement Step complete.");
+			sails.sockets.blast('GameMessages', {msg: 'Finished Movement Step.'});
+			return true;
 		})
+		.then(function (ignore) {
+			sails.log("Combat Step Finished.");
+			return true;
+		})
+		.then(function (finished) {
+			sails.log("And we're done.  Should see this last.");
+			sails.sockets.blast('GameMessages', {msg: 'Completed Step.'});
+			return res.send('stepDone');
+			sails.log("Step Complete.");
+		})		
 		.catch (function (error){
 			sails.log('Error Loading Map',error);
 			return res.error(error);

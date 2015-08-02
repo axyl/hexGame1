@@ -8,7 +8,7 @@
 module.exports = {
 
   attributes: {
-  	unitId: {	//Possible DOM ID?
+  	unitId: {	//Possible DOM ID?  // TODO - remove this.  Just using the Waterline ID
   		type:'integer',
   		autoIncrement: true
   	}, 
@@ -28,9 +28,9 @@ module.exports = {
   	posCubeY: 'integer',
   	posCubeZ: 'integer',
   	health: 'integer',	// Link this to the unit.strength ...but if zero...she dead.
-  	//TODO : On create, health should be set to whatever the unit has defined.
   	moveStepsLeft: 'integer',	// While a turn is being executed, this shows how many steps we have left available to move.
-  	attackStepsLeft: 'integer'	// While a turn is being executed, how many attacks left do we have?
+  	attackStepsLeft: 'integer',	// While a turn is being executed, how many attacks left do we have?
+    healthLeft: 'integer' // While a step is in progress, what health do we have left?
   },
 
   afterCreate: function (newlyInsertedRecord, cb) {
