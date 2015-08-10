@@ -38,20 +38,20 @@ function getNeededSteps(offsetPos, unit, loadedMap) {
 					break;
 				case "road":
 					sails.log('Road Tile');
-					steps= unit.unit.roadSteps; 
+					steps= unit.unit.roadSteps;
 					break;
 				case "hill":
 					sails.log('Hill Tile');
 					steps= unit.unit.hillSteps;
 					break;
-				default: 
+				default:
 					sails.log('Standard Tile');
 					steps= unit.unit.moveSteps;
 
 			}
 
 		}
-		
+
 	}
 	sails.log('Returning steps required as', steps);
 	return steps;
@@ -60,13 +60,18 @@ function getNeededSteps(offsetPos, unit, loadedMap) {
 
 // Move a unit it's step...
 stepPlayerUnit= function (unit, loadedMap) {
+	if (unit.order== undefined) {
+		sails.log('Unit has undefined orders.');
+		return unit;
+	}
  	if (unit.order.movePath.length< 1) {
+		sails.log('Unit has no move orders left.')
  		unit.moveStepsLeft= 0;
  		unit.save();
  		return unit;
  	}
  	sails.log('Stepping unit', unit.id);
- 	// Check the hexTile it wants to move to, what's it's step?  Let's just guess 2...
+ 	// Check the hexTile it wants to move to, what's it's step?
  	var neededSteps= getNeededSteps(cubetoOffset({x:unit.order.movePath[0].x, y:unit.order.movePath[0].y, z:unit.order.movePath[0].z}), unit, loadedMap);
 
  	if (unit.moveStepsLeft< neededSteps||neededSteps=== 0) {
@@ -95,12 +100,13 @@ stepPlayerUnit= function (unit, loadedMap) {
 			// Save it and broadcast.
 			unit.save();
 			// Send the socket update.
-			sails.sockets.blast('PlayerUnit', {playerUnit: unit.id, movePath: unit.order.movePath, 
+			sails.sockets.blast('PlayerUnit', {playerUnit: unit.id, movePath: unit.order.movePath,
 				posCubeX: unit.posCubeX, posCubeY: unit.posCubeY, posCubeZ: unit.posCubeZ});
 
  		} else {
- 			sails.log('Destination Tile occupied. Halting this step.');	
+ 			sails.log('Destination Tile occupied. Halting this step.');
  		}
+		// return unit;
 	})
 	.catch( function (error) {
 		sails.log("Error stepping unit", error);
@@ -114,9 +120,9 @@ stepPlayerUnit= function (unit, loadedMap) {
  	// Look for the best candidate to attack and attack it...
  	// TODO : How do we select a unit to attack?
  	sails.log('Doing an attack check for', unit.id);
- 	
+
  	// Currently we're checking for the first unit that comes back that's within attack range.
- 	return PlayerUnit.findOne({
+ 	return PlayerUnit.find({
  		health:{'>':0},
  		// TODO : Need to only select units on other teams!
  		// player.team:{'!':unit.player.team},
@@ -125,17 +131,32 @@ stepPlayerUnit= function (unit, loadedMap) {
  		posCubeY:{'>=':unit.posCubeY- unit.unit.attackRange},
  		posCubeY:{'<=':unit.posCubeY+ unit.unit.attackRange},
  		posCubeZ:{'>=':unit.posCubeZ- unit.unit.attackRange},
- 		posCubeZ:{'<=':unit.posCubeZ+ unit.unit.attackRange}})
- 	.then( function(foundTarget) {
- 		if (foundTarget!= undefined) {
- 			unit.attackStepsLeft= unit.attackStepsLeft- 1;	// TODO : Should we have different attacks use up more than just one step?
- 			unit.save();
- 			foundTarget.healthLeft= foundTarget.healthLeft- unit.attack;
- 			foundTarget.save();
- 			sails.log('Unit attacked with healthLeft as', unit.id, foundTarget.id, foundTarget.healthLeft);
+ 		posCubeZ:{'<=':unit.posCubeZ+ unit.unit.attackRange}}).populate('player')
+ 	.then( function(possibleTargets) {
+ 		if (possibleTargets!= undefined) {
+			// Loop through each one...until we find one that's enemy.
+
+			for (var loopUnits= 0; loopUnits< possibleTargets.length; loopUnits++)
+			{
+				if (possibleTargets[loopUnits].player.team!= unit.player.team)
+				{
+					// Found an enemy - Need to update unit's data with the attackStepsLeft.
+					unit.attackStepsLeft= unit.attackStepsLeft- 1;	// TODO : Should we have different attacks use up more than just one step?
+					// OUT OF ORDER HERE...save is saving old data.
+					// unit.save();
+					sails.log('Current unit healthLeft', unit.healthLeft);
+					sails.log('Current target healthLeft', possibleTargets[loopUnits].healthLeft);
+		 			possibleTargets[loopUnits].healthLeft= possibleTargets[loopUnits].healthLeft- unit.unit.attack;
+		 			possibleTargets[loopUnits].save();
+		 			sails.log('Unit attacked with healthLeft as', unit.id, possibleTargets[loopUnits].id, possibleTargets[loopUnits].healthLeft);
+					break;
+				}
+			}
+
  		} else {
  			sails.log('No units nearby for', unit.id);
  		}
+		return unit;
  	})
  	.catch( function(error){
  		sails.log('Error doing attack check for unit.', error);
@@ -147,7 +168,7 @@ stepPlayerUnit= function (unit, loadedMap) {
  resetHealthLeft= function() {
  	sails.log('resetHealthLeft');
  	// get All alive units and reset their healthLeft to health...
- 	return PlayerUnit.find({health:{'>':0}})
+ 	return PlayerUnit.find({health:{'>':0}}).populate('order')
  	.then (function(aliveUnits) {
 
 		var m= Promise.map(aliveUnits, function(aliveUnit) {
@@ -167,6 +188,7 @@ stepPlayerUnit= function (unit, loadedMap) {
  };
 
  testPlayer= function(entry) {
+
  	sails.log('testPlayer', entry.id);
  	if (entry.order.movePath== 0) {
  		sails.log('No movement...');
@@ -186,31 +208,55 @@ stepPlayerUnit= function (unit, loadedMap) {
 	 		throw error;
  		});
  	}
-
+	sails.log('End of testPlayer');
  };
+
+ testPlayer2= function(entry) {
+	 return new Promise(function (resolve, reject) {
+		 sails.log('testPlayer2', entry.id);
+		 if (entry.order.movePath== 0) {
+			 sails.log('No movement...');
+			 resolve(entry);
+		 } else {
+
+			 PlayerUnit.findOne({posCubeX:entry.order.movePath[0].x,posCubeY:entry.order.movePath[0].y,posCubeZ:entry.order.movePath[0].z})
+			 .then(function (found) {
+				 sails.log('findOne!', found);
+				 if (found=== undefined) {
+					 sails.log('Tile is free');
+				 }
+				 resolve(entry);
+			 })
+			 .catch(function (error) {
+				 sails.log('Exception',error);
+				 reject(error);
+				 });
+			 };
+
+	 });
+	 sails.log('End of testPlayer');
+};
+
+
 
 module.exports = {
 
 	runTurn: function (req, res) {
-		var params= req.allParams();
-		sails.log('Running Turn');
-
-		// TODO: Reset all steps.
-		PlayerUnit.find({health:{'>':0}}).populate('unit').exec(function (err, foundUnits) {
-			for (var loopUnits= 0; loopUnits< foundUnits.length; loopUnits++)
-			{
-
-				foundUnits[loopUnits].moveStepsLeft= foundUnits[loopUnits].unit.moveSteps;
-				foundUnits[loopUnits].attackStepsLeft= foundUnits[loopUnits].unit.attackSteps;
-				foundUnits[loopUnits].save();
-			}
-		});
-
-		// Broadcast that we're starting a turn.
-		sails.sockets.blast('GameMessages', {msg: 'Starting Action Sequence.'});
-
-		return res.send('Done');
+		sails.log('Running Turn')
+		turnService.startTurn()
+		// TODO run the steps.
+		.then(function() {
+			// Finish it!
+			return turnService.endTurn()
+		})
+		.then(function(mapState) {
+			return res.send(mapState)
+		})
+		.catch(function() {
+			return res.badRequest
+		})
 	},
+
 
 	runTest: function (req, res) {
 		// Just an example of doing the promises based requests for dealing with each unit.
@@ -219,21 +265,19 @@ module.exports = {
 
 		sails.log('start');
 		// Get a list of units that can move.
+
 		PlayerUnit.find({moveStepsLeft:{'>':0},health:{'>':0}}).populate('order').populate('unit')
 		.then(function (foundUnits) {
 			sails.log('data', foundUnits.length);
 			// Cycle through each unit and do something with it.
+			// each means sequential...  map instead would be async.
 			var m= Promise.map(foundUnits, function(foundUnit) {
 				sails.log('SingleUnit', foundUnit.id);
 
-				return testPlayer(foundUnit);
-			}).then(function(result) {
-				// Deal with the result of having cycle'd through them all.  
-				// If we returned result, then it would be an array of what the map returned above.
-				sails.log('Map Result is', result.length);
-				return foundUnits;
-			});
+				return testPlayer2(foundUnit);
+			})
 			// This returns the promise to the outside...
+			sails.log('returning promise.all');
 			return Promise.all(m).catch(function(error){throw error;})
 		})
 		.then(function (test) {
@@ -263,7 +307,7 @@ module.exports = {
 		// Using promisfied version of the TMX thing.
 		// TODO: Might have to change that, as we need the map for a bunch of stuff here.
 		tmx.parseFileAsync("./assets/data/map/SecondGo.tmx")
-		.then(function (loadedMap) { 
+		.then(function (loadedMap) {
 			sails.log('Map Loaded with dims',loadedMap.width,loadedMap.height);
 			return loadedMap;
 		})
@@ -273,12 +317,14 @@ module.exports = {
 			.then(function (foundUnits) {
 				// Async cycle through each unit and move them
 				sails.log('Checking for units that can move');
-				var move= Promise.map(foundUnits, function(foundUnit) {
+				// Sequential.
+				var move= Promise.each(foundUnits, function(foundUnit) {
 					sails.log('Checking Move for unit', foundUnit.id);
 					return stepPlayerUnit(foundUnit, loadedMap);
 				});
 				return Promise.all(move).catch(function(error){throw error;})
 			})
+
 			// Now combat
 			.then(function (ignore) {
 				// Now the Combat step - reset all unit PlayerUnit healthLeft to the value of their health.
@@ -292,7 +338,7 @@ module.exports = {
 				return PlayerUnit.find({attackStepsLeft:{'>':0},health:{'>':0}}).populate('unit').populate('player')
 				.then( function (possibleAttackingUnits) {
 					sails.log('Atacking units checking for found nme.');
-					var attackingUnits= Promise.map(possibleAttackingUnits, function(unitAttackingCheck) {
+					var attackingUnits= Promise.each(possibleAttackingUnits, function(unitAttackingCheck) {
 						return attackCheckForUnit(unitAttackingCheck, loadedMap);
 					});
 					return Promise.all(attackingUnits).catch(function(error){throw error;})
@@ -315,7 +361,7 @@ module.exports = {
 			sails.sockets.blast('GameMessages', {msg: 'Completed Step.'});
 			return res.send('stepDone');
 			sails.log("Step Complete.");
-		})		
+		})
 		.catch (function (error){
 			sails.log('Error Loading Map',error);
 			return res.error(error);
@@ -329,7 +375,7 @@ module.exports = {
 			// No units to step!  OHMAIGAWD
 			if (foundUnits.length=== 0) {
 				sails.log('Found no units.');
-		
+
 				// Broadcast that we're starting a step.
 				sails.sockets.blast('GameMessages', {msg: 'Finished Action Step - No Units left to Move.'});
 
@@ -364,6 +410,5 @@ module.exports = {
 
 
 
-	
-};
 
+};

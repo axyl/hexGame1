@@ -13,20 +13,31 @@ module.exports = {
 		var params= req.allParams();
 
 
+		// TODO : Validate this move order...?
 
 		// Look for the existing order for this playerUnit and replace the path.
 		PlayerUnit.findOne({id:params.id}).populate('order').exec(function (err, found) {
 
+			sails.log('Updating orders for ', params.id);
 
-			console.log('Updating orders for ', params.id);
-			sails.log('orders currently are ', found.order);
+			// Sometimes there's no existing order...
+			if (found.order== undefined) {
+				Order.create({playerUnit:found.id, type:"move", movePath:params.movePath}, function(newOrder) {
+					sails.log('Linking new Order.', newOrder.id);
+					found.order= [newOrder.id];
+					found.save();
+					sails.sockets.blast('PlayerUnit', {playerUnit: params.id,movePath: params.movePath}, req.socket);
 
-			found.order.movePath= params.movePath;
-			found.order.save();
+				});
+			} else {
+				sails.log('New orders are ', params.movePath);
 
-			var subscribers= PlayerUnit.subscribers(found);
-			sails.log('Current subscriber count is ', subscribers.length);
-			sails.sockets.blast('PlayerUnit', {playerUnit: params.id,movePath: params.movePath}, req.socket);
+				found.order.movePath= params.movePath;
+				found.order.save();
+				sails.sockets.blast('PlayerUnit', {playerUnit: params.id,movePath: params.movePath}, req.socket);
+
+			};
+
 		});
 	},
 
@@ -48,7 +59,7 @@ module.exports = {
         		"y": -30,
         		"z": 11};
         } else {
-        	// Blue Base HARD CODED!?!?!? 
+        	// Blue Base HARD CODED!?!?!?
 
         	startPos= {
         	 	"x": 11,
@@ -100,6 +111,5 @@ module.exports = {
  		});
 
 	}
-	
-};
 
+};

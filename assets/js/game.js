@@ -12,11 +12,12 @@ var game = {
         me.sys.pauseOnBlur= false;
         me.sys.stopOnBlur= false;
         // init the video
-        if (!me.video.init(window.innerWidth, window.innerHeight, {wrapper : "screen", scale : 'auto', scaleMethod: 'stretch'})) {
+        // if (!me.video.init(window.innerWidth, window.innerHeight, {wrapper : "screen", scale : 'auto', scaleMethod: 'stretch'})) {
+        if (!me.video.init(window.innerWidth, window.innerHeight, {wrapper : "screen", scale : '2', scaleMethod: 'fit'})) {
             alert("Your browser does not support HTML5 canvas.");
             return;
         }
-        
+
         // Set some default debug flags
         me.debug.renderHitBox = true;
 
@@ -53,7 +54,7 @@ var game = {
         var text = new game.TextEntity(0,0,100,20);
         text.isPersistent = true;
         me.game.world.addChild(text);
-        
+
         // register on mouse event
         me.input.registerPointerEvent("pointermove", me.game.viewport, function (event) {
             me.event.publish("pointermove", [ event ]);
