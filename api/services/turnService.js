@@ -5,7 +5,12 @@
  * @help        :: See http://stackoverflow.com/questions/20735380/sails-js-access-controller-method-from-controller-method
  */
 
-var Promise = require('bluebird');
+var Promise = require('bluebird')
+var tmx= Promise.promisifyAll(require('tmx-parser'))	// The TMX Map Parser - promisfied
+
+/*
+This was my old method for resetting the unit steps...
+But I was creating a new promise...didn't need to!
 
 // Resets steps for all units passed.
 resetUnitSteps= function(unitsToReset) {
@@ -17,9 +22,24 @@ resetUnitSteps= function(unitsToReset) {
   })
   return Promise.all(m).catch(function(e){throw e})
 },
+*/
 
+// Resets steps for all units passed.
+resetUnitStep= function(unitToReset) {
+  unitToReset.moveStepsLeft= unitToReset.unit.moveSteps
+  unitToReset.attackStepsLeft= unitToReset.unit.attackSteps
+  return unitToReset.save()
+},
+
+// Returns all units that are alive - used for the turn actions...
+// What units should be involved in doing the turns?
 getAlivePlayableUnits= function() {
   return PlayerUnit.find({health:{'>':0}}).populate('unit')
+}
+
+// Loading the TMX map definition
+loadTMXMap= function(mapInstance) {
+  return tmx.parseFileAsync("./assets/data/map/"+ mapInstance[0].tmxFile)
 }
 
 module.exports = {
@@ -28,14 +48,19 @@ module.exports = {
     sails.log('Starting a new Turn')
 
     // Reset all steps for playable units and set the map to being in turn mode.
-    // TODO : Only one map record at the moment...Need to update for multiple map support.
     // TODO : Are we already in a turn?
     return new Promise(function (resolve, reject) {
+      // see here.  https://github.com/petkaantonov/bluebird/blob/master/API.md#binddynamic-thisarg---promise
       Map.update({}, {turnProcessing: true})
-      .then( getAlivePlayableUnits)
-      .then(resetUnitSteps)
+      .then(loadTMXMap)
+      .bind({}) // We want to keep the TMX definition available for other calls.
+      .then( function (loadedTMXDefinition) {
+        return this.tmxMap= loadedTMXDefinition;
+      })
+      .then(getAlivePlayableUnits)
+      .map(resetUnitStep)
       .then(function() {
-        sails.log('startTurn done.')
+        sails.log('startTurn done.',this.tmxMap.height)
         sails.sockets.blast('GameMessages', {msg: 'Starting Turn.'})
         resolve(true)
       })
